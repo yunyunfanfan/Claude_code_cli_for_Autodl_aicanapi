@@ -40,23 +40,29 @@ else
     install_node
 fi
 
-# ── 2. 配置 npm 使用国内镜像 ──────────────────────
+# ── 2. 配置 npm 使用国内镜像（仅用于普通包）──────
 log "配置 npm 镜像为淘宝源..."
 npm config set registry https://registry.npmmirror.com
 
 # ── 3. 安装 Claude Code ───────────────────────────
+# 注意：必须使用官方 npm 源安装 claude-code
+# 淘宝源上的 @anthropic-ai/claude-code 是 Windows 版本，缺少 Linux 原生二进制
+install_claude() {
+    log "从官方 npm 源安装 Claude Code（淘宝源缺少 Linux 原生二进制）..."
+    npm install -g @anthropic-ai/claude-code --registry https://registry.npmjs.org
+    log "Claude Code 安装完成: $(claude --version 2>/dev/null || echo 'OK')"
+}
+
 if command -v claude &>/dev/null; then
-    log "Claude Code 已安装: $(claude --version 2>/dev/null || echo '已存在')"
+    CURRENT_VER=$(claude --version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "unknown")
+    log "Claude Code 已安装: $CURRENT_VER"
     warn "是否更新到最新版本？(y/N)"
     read -r UPDATE_CHOICE
     if [[ "$UPDATE_CHOICE" =~ ^[Yy]$ ]]; then
-        npm install -g @anthropic-ai/claude-code
-        log "Claude Code 更新完成"
+        install_claude
     fi
 else
-    log "安装 Claude Code..."
-    npm install -g @anthropic-ai/claude-code
-    log "Claude Code 安装完成: $(claude --version 2>/dev/null || echo 'OK')"
+    install_claude
 fi
 
 # ── 4. 创建配置目录 ───────────────────────────────
@@ -89,16 +95,15 @@ cat > "$CLAUDE_DIR/settings.local.json" << 'EOF'
 EOF
 log "配置文件写入完成"
 
-# ── 7. API Key 和代理已内置在 settings.json，无需额外配置 ──
-log "API Key 和 Base URL 已写入 settings.json，无需额外配置"
+log "API Key 和 Base URL 已写入 settings.json，请编辑 ~/.claude/settings.json 填入真实 API Key"
 
-# ── 10. 验证安装 ──────────────────────────────────
+# ── 7. 验证安装 ──────────────────────────────────
 echo ""
 echo "── 验证安装 ──────────────────────────────────"
 log "Node.js: $(node -v)"
 log "npm: $(npm -v)"
 if command -v claude &>/dev/null; then
-    log "Claude Code: 已安装"
+    log "Claude Code: $(claude --version 2>/dev/null || echo '已安装')"
 else
     err "Claude Code 安装失败，请检查 npm 日志"
 fi
@@ -108,6 +113,9 @@ echo "================================================"
 echo "  配置完成！"
 echo "================================================"
 echo ""
-echo "使用方法:"
-echo "  claude   # 进入项目目录后启动"
+echo "使用前请先编辑 API Key:"
+echo "  nano ~/.claude/settings.json"
+echo ""
+echo "然后启动:"
+echo "  claude"
 echo ""
